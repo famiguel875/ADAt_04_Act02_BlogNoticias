@@ -5,16 +5,16 @@ import com.mongodb.client.MongoDatabase
 import com.mongodb.client.model.Filters
 import org.bson.Document
 import utils.ConexionMongo
+import org.bson.conversions.Bson
 
 class UsuarioService(database: MongoDatabase) {
     private val databaseName = "noticiasdb"
     // Se obtiene la colección "usuarios" de la base de datos
-    private val usuariosCollection: MongoCollection<Document> = ConexionMongo.getCollection(databaseName, "collUsuarios")
+    private val usuariosCollection: MongoCollection<Document> =
+        ConexionMongo.getCollection(databaseName, "collUsuarios")
 
     /**
      * Registra un usuario verificando que el email y el nombre de usuario sean únicos.
-     * @param usuario Documento con los datos del usuario.
-     * @return Mensaje indicando el resultado de la operación.
      */
     fun registrarUsuario(usuario: Document): String {
         val filtro = Filters.or(
@@ -26,5 +26,12 @@ class UsuarioService(database: MongoDatabase) {
         }
         usuariosCollection.insertOne(usuario)
         return "Usuario registrado correctamente."
+    }
+
+    /**
+     * Permite obtener un usuario de la colección a partir de un filtro.
+     */
+    fun getUsuario(filtro: Bson): Document? {
+        return usuariosCollection.find(filtro).first()
     }
 }

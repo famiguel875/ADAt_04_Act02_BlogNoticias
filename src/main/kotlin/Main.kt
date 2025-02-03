@@ -77,7 +77,7 @@ fun main() {
                     val titulo = readln()
                     print("Cuerpo: ")
                     val cuerpo = readln()
-                    print("Autor (nombre de usuario): ")
+                    print("Autor (nombre de usuario o email): ")
                     val autor = readln()
                     print("Etiquetas (separadas por coma, opcional): ")
                     val tagsInput = readln()
@@ -92,7 +92,19 @@ fun main() {
                         .append("autor", autor)
                         .append("tags", tags)
 
-                    println(noticiaService.publicarNoticia(noticia))
+                    // Verificar que el usuario esté registrado y activo
+                    val filtroAutor = com.mongodb.client.model.Filters.or(
+                        com.mongodb.client.model.Filters.eq("email", autor),
+                        com.mongodb.client.model.Filters.eq("nombreUsuario", autor)
+                    )
+                    val usuarioDoc = usuarioService.getUsuario(filtroAutor)
+                    if (usuarioDoc == null) {
+                        println("Error: El usuario no está registrado y no puede publicar noticias.")
+                    } else if (usuarioDoc.getString("estado") != "ACTIVO") {
+                        println("Error: El usuario no está en estado ACTIVO y no puede publicar noticias.")
+                    } else {
+                        println(noticiaService.publicarNoticia(noticia))
+                    }
                 }
                 3 -> {
                     // Listar noticias por usuario
