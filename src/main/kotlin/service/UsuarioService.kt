@@ -9,7 +9,7 @@ import org.bson.conversions.Bson
 
 class UsuarioService(database: MongoDatabase) {
     private val databaseName = "noticiasdb"
-    // Se obtiene la colección "usuarios" de la base de datos
+    // Se obtiene la colección "usuarios" de la base de datos /
     private val usuariosCollection: MongoCollection<Document> =
         ConexionMongo.getCollection(databaseName, "collUsuarios")
 

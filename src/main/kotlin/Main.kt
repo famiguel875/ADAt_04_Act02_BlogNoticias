@@ -31,7 +31,7 @@ fun main() {
 
             when (readln().toInt()) {
                 1 -> {
-                    // Registrar usuario
+                    // Registrar usuario /
                     println("\n-- Registro de Usuario --")
                     print("Email: ")
                     val email = readln()
