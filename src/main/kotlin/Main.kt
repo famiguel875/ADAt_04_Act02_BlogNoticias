@@ -1,17 +1,20 @@
-import com.mongodb.client.MongoCollection
-import com.mongodb.client.model.Filters
-import com.mongodb.client.model.Sorts
 import org.bson.Document
-import utils.ConexionMongo
 import java.util.Date
+import com.mongodb.client.MongoDatabase
+import service.UsuarioService
+import service.ComentarioService
+import service.NoticiaService
+import utils.ConexionMongo
 
 fun main() {
-    // Nombre de la base de datos
+    // Usamos "noticiasdb" como nombre de la base de datos.
     val databaseName = "noticiasdb"
-    // Obtención de las colecciones usando ConexionMongo
-    val usuariosCollection: MongoCollection<Document> = ConexionMongo.getCollection(databaseName, "collUsuarios")
-    val noticiasCollection: MongoCollection<Document> = ConexionMongo.getCollection(databaseName, "collNoticias")
-    val comentariosCollection: MongoCollection<Document> = ConexionMongo.getCollection(databaseName, "collComentarios")
+    val database: MongoDatabase = ConexionMongo.getDatabase(databaseName)
+
+    // Instanciamos los servicios, inyectando la base de datos.
+    val usuarioService = UsuarioService(database)
+    val noticiaService = NoticiaService(database)
+    val comentarioService = ComentarioService(database)
 
     try {
         while (true) {
@@ -65,7 +68,7 @@ fun main() {
                         .append("direccionPostal", direccion)
                         .append("telefonos", telefonos)
 
-                    println(registrarUsuario(usuariosCollection, usuario))
+                    println(usuarioService.registrarUsuario(usuario))
                 }
                 2 -> {
                     // Publicar noticia
@@ -78,9 +81,9 @@ fun main() {
                     val autor = readln()
                     print("Etiquetas (separadas por coma, opcional): ")
                     val tagsInput = readln()
-                    val tags = if (tagsInput.isBlank()) listOf<String>()
-                    else tagsInput.split(",").map { it.trim() }
-                    // Se utiliza la fecha actual para la publicación
+                    val tags = if (tagsInput.isBlank()) listOf<String>() else tagsInput.split(",").map { it.trim() }
+
+                    // Se utiliza la fecha actual para la publicación.
                     val fechaPublicacion = Date()
 
                     val noticia = Document("titulo", titulo)
@@ -88,14 +91,15 @@ fun main() {
                         .append("fechaPublicacion", fechaPublicacion)
                         .append("autor", autor)
                         .append("tags", tags)
-                    println(publicarNoticia(noticiasCollection, noticia))
+
+                    println(noticiaService.publicarNoticia(noticia))
                 }
                 3 -> {
                     // Listar noticias por usuario
                     println("\n-- Listar Noticias por Usuario --")
                     print("Ingrese el nombre de usuario: ")
                     val autor = readln()
-                    val noticias = listarNoticiasPorUsuario(noticiasCollection, autor)
+                    val noticias = noticiaService.listarNoticiasPorUsuario(autor)
                     if (noticias.isEmpty()) {
                         println("No se encontraron noticias para el usuario $autor")
                     } else {
@@ -115,14 +119,15 @@ fun main() {
                         .append("noticiaId", noticiaId)
                         .append("comentario", comentarioTexto)
                         .append("fechaHora", Date())
-                    println(escribirComentario(usuariosCollection, comentariosCollection, usuarioIdentificador, comentario))
+
+                    println(comentarioService.escribirComentario(usuarioIdentificador, comentario))
                 }
                 5 -> {
                     // Listar comentarios de una noticia
                     println("\n-- Listar Comentarios de una Noticia --")
                     print("Ingrese el título de la noticia: ")
                     val noticiaId = readln()
-                    val comentarios = listarComentariosPorNoticia(comentariosCollection, noticiaId)
+                    val comentarios = comentarioService.listarComentariosPorNoticia(noticiaId)
                     if (comentarios.isEmpty()) {
                         println("No hay comentarios para la noticia \"$noticiaId\"")
                     } else {
@@ -134,7 +139,7 @@ fun main() {
                     println("\n-- Buscar Noticias por Etiqueta --")
                     print("Ingrese la etiqueta: ")
                     val etiqueta = readln()
-                    val noticias = buscarNoticiasPorEtiqueta(noticiasCollection, etiqueta)
+                    val noticias = noticiaService.buscarNoticiasPorEtiqueta(etiqueta)
                     if (noticias.isEmpty()) {
                         println("No se encontraron noticias con la etiqueta \"$etiqueta\"")
                     } else {
@@ -144,7 +149,7 @@ fun main() {
                 7 -> {
                     // Listar las 10 últimas noticias
                     println("\n-- Últimas 10 Noticias Publicadas --")
-                    val ultimasNoticias = listarUltimasNoticias(noticiasCollection)
+                    val ultimasNoticias = noticiaService.listarUltimasNoticias()
                     if (ultimasNoticias.isEmpty()) {
                         println("No hay noticias registradas.")
                     } else {
@@ -163,62 +168,4 @@ fun main() {
     } finally {
         ConexionMongo.close()
     }
-}
-
-fun registrarUsuario(usuariosCollection: MongoCollection<Document>, usuario: Document): String {
-    val filtro = Filters.or(
-        Filters.eq("email", usuario.getString("email")),
-        Filters.eq("nombreUsuario", usuario.getString("nombreUsuario"))
-    )
-    if (usuariosCollection.find(filtro).first() != null) {
-        return "Error: El email o nombre de usuario ya existe."
-    }
-    usuariosCollection.insertOne(usuario)
-    return "Usuario registrado correctamente."
-}
-
-fun publicarNoticia(noticiasCollection: MongoCollection<Document>, noticia: Document): String {
-    val filtroFecha = Filters.eq("fechaPublicacion", noticia.getDate("fechaPublicacion"))
-    if (noticiasCollection.find(filtroFecha).first() != null) {
-        return "Error: Ya existe una noticia con la misma fecha de publicación."
-    }
-    noticiasCollection.insertOne(noticia)
-    return "Noticia publicada correctamente."
-}
-
-fun listarNoticiasPorUsuario(noticiasCollection: MongoCollection<Document>, autor: String): List<Document> {
-    return noticiasCollection.find(Filters.eq("autor", autor)).toList()
-}
-
-fun escribirComentario(
-    usuariosCollection: MongoCollection<Document>,
-    comentariosCollection: MongoCollection<Document>,
-    usuarioIdentificador: String,
-    comentario: Document
-): String {
-    val filtro = Filters.or(
-        Filters.eq("email", usuarioIdentificador),
-        Filters.eq("nombreUsuario", usuarioIdentificador)
-    )
-    val usuarioDoc = usuariosCollection.find(filtro).first() ?: return "Error: Usuario no registrado."
-    if (usuarioDoc.getString("estado") != "ACTIVO") {
-        return "Error: El usuario no puede comentar porque está inactivo o baneado."
-    }
-    comentariosCollection.insertOne(comentario)
-    return "Comentario añadido correctamente."
-}
-
-fun listarComentariosPorNoticia(comentariosCollection: MongoCollection<Document>, noticiaId: String): List<Document> {
-    return comentariosCollection.find(Filters.eq("noticiaId", noticiaId)).toList()
-}
-
-fun buscarNoticiasPorEtiqueta(noticiasCollection: MongoCollection<Document>, etiqueta: String): List<Document> {
-    return noticiasCollection.find(Filters.eq("tags", etiqueta)).toList()
-}
-
-fun listarUltimasNoticias(noticiasCollection: MongoCollection<Document>): List<Document> {
-    return noticiasCollection.find()
-        .sort(Sorts.descending("fechaPublicacion"))
-        .limit(10)
-        .toList()
 }
